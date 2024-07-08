@@ -3,6 +3,10 @@ import requests
 import qrcode
 import io
 from PIL import Image
+import base64
+import numpy as np
+import cv2
+from pyzbar.pyzbar import decode
 
 # Config
 st.set_page_config(page_title="chkscription", layout="centered")
@@ -15,17 +19,42 @@ ADMIN_PASSWORD = "temppassword"
 def prescription_verification():
     st.title("Prescription Verification")
     prescription_number = st.text_input("Prescription Number")
+    uploaded_file = st.file_uploader("Upload Digital Signature QR Code", type=["png", "jpg", "jpeg"])
+    
     if st.button("Submit"):
-        response = requests.post("http://localhost:8000/verify-prescription", json={"prescription_number": prescription_number})
-        if response.status_code == 200:
-            verification_result = response.json()
-            if verification_result['is_valid']:
-                st.success("Prescription is valid.")
-                st.json(verification_result['prescription_details'])
+        if (not uploaded_file) or (not prescription_number):
+            st.error("Please provide the prescription number and upload the digital signature QR code.")
+            return
+        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+        image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        decoded_info = decode(image)
+        if not decoded_info:
+            st.error("QR code not detected in the image")
+            return
+        digital_signature = decoded_info[0].data.decode("utf-8")
+        try:
+            response = requests.post("http://localhost:8000/verify-prescription", json={"prescription_number": prescription_number, "digital_signature": digital_signature})
+            response.raise_for_status()
+            data = response.json()
+            if data["is_valid"]:
+                st.success(data["message"])
+                st.subheader("Prescription Details")
+                st.write(f"Name: {data['prescription_details']['name']}")
+                st.write(f"Age: {data['prescription_details']['age']}")
+                st.write(f"Gender: {data['prescription_details']['gender']}")
+                st.write(f"Weight: {data['prescription_details']['weight']}")
+                st.write(f"Allergies: {data['prescription_details']['allergies']}")
+                st.subheader("Medicines")
+                for i, medicine in enumerate(data["prescription_details"]["medicines"], 1):
+                    st.write(f"Medicine {i}")
+                    st.write(f"Name: {medicine['name']}")
+                    st.write(f"Dosage: {medicine['dosage']} mg")
+                    st.write(f"Frequency: {medicine['frequency']}")
+                    st.write(f"Instructions: {medicine['instructions']}")
             else:
-                st.error("Prescription is invalid.")
-        else:
-            st.error("Failed to verify prescription.")
+                st.error(data["message"])
+        except requests.exceptions.RequestException as e:
+            st.error(f"Error: {e}")
 
 def doctor_portal():
     st.title("Doctor's Portal")
