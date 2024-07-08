@@ -1,16 +1,8 @@
 # server.py
 from flask import Flask, request, jsonify
-from models.prescription import prescription
+from models.prescription import Prescription
 from utils.digital_signature import DigitalSignature
-import datetime
 import random
-import base64
-from rsa import *
-import ast
-from Crypto.Cipher import AES
-import base64
-
-
 
 private_key = open('keys/private.pem').read()
 public_key = open('keys/public.pem').read()
@@ -29,15 +21,13 @@ def issue_prescription():
     data = request.get_json()
     patient_name = data.get('name')
     patient_age = data.get('age')
-    photo = data.get('photo')
     medicine = data.get('medicine')
-    digital_signature = data.get('digital_signature')
     gender_choice = data.get('gender')
     patient_weight = data.get('weight')
     patient_allergies = data.get('allergies')
     prescription_number = generate_prescription_number()
 
-    digital_signature_str = DSGen.generate_signature(f"{prescription_number}|{patient_name}|{patient_age}|{validity}".encode('utf-8'))
+    digital_signature_str = DSGen.generate_signature(f"{prescription_number}|{patient_name}|{patient_age}|{medicine}|{gender_choice}|{patient_weight}|{patient_allergies}".encode('utf-8'))
 
     return jsonify({'message': 'prescription issued successfully', 'prescription_number': prescription_number, 'digital_signature': digital_signature_str}), 200
 
@@ -50,7 +40,7 @@ def verify_prescription():
     digital_signature = data.get('digital_signature')
     
 
-    prescription = prescription.find_by_prescription_number(prescription_number)
+    prescription = Prescription.find_by_prescription_number(prescription_number)
     if not prescription:
         return jsonify({'message': 'prescription not found', 'is_valid': False}), 200
 

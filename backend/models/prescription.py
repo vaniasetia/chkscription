@@ -1,6 +1,6 @@
+from typing import Optional
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
-import json
 from dotenv import load_dotenv
 import os
 
@@ -47,7 +47,7 @@ class Prescription:
 
     @staticmethod
     def find_by_prescription_number(prescription_number: str) -> Optional['Prescription']:
-        prescription_data = prescription_collection.find_one({'prescription_number': prescription_numberr})
+        prescription_data = prescription_collection.find_one({'prescription_number': prescription_number})
         if prescription_data:
             return Prescription(
                 prescription_number=prescription_data['prescription_number'],
