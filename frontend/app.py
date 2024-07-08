@@ -1,4 +1,8 @@
 import streamlit as st
+import requests
+import qrcode
+import io
+from PIL import Image
 
 # Config
 st.set_page_config(page_title="chkscription", layout="centered")
@@ -11,9 +15,17 @@ ADMIN_PASSWORD = "temppassword"
 def prescription_verification():
     st.title("Prescription Verification")
     prescription_number = st.text_input("Prescription Number")
-    data = st.file_uploader("Upload a QR")
-    st.button("Submit")
-    # Add fields here
+    if st.button("Submit"):
+        response = requests.post("http://localhost:8000/verify-prescription", json={"prescription_number": prescription_number})
+        if response.status_code == 200:
+            verification_result = response.json()
+            if verification_result['is_valid']:
+                st.success("Prescription is valid.")
+                st.json(verification_result['prescription_details'])
+            else:
+                st.error("Prescription is invalid.")
+        else:
+            st.error("Failed to verify prescription.")
 
 def doctor_portal():
     st.title("Doctor's Portal")
@@ -33,15 +45,41 @@ def doctor_portal():
         gender_choice = st.radio("Gender",["male", "female", "other"])
         patient_weight = st.number_input("Weight", 0 , 200)
         patient_allergies = st.text_input("Allergies")
-        #drug information
-        clicked = st.button("Add medicine", on_click = add_medicine)
-        for i in range (1,st.session_state.medicine_count):
-            st.text_input(f"Name of the drug {i}", key = f"medicine_name_{i}")
-            st.text_input(f"Dosage in mg {i}", key = f"medicine_dosage_{i}")
-            st.text_input(f"Frequency of the drug {i}", key = f"medicine_frequency_{i}")
-            st.text_input(f"Any Special Instructions {i}", key = f"medicine_instructions_{i}")
-        st.button("Submit")
-        # add more fields here
+        medicines = []
+        clicked = st.button("Add medicine", on_click=add_medicine)
+        for i in range(1, st.session_state.medicine_count):
+            medicine_name = st.text_input(f"Name of the drug {i}", key=f"medicine_name_{i}")
+            medicine_dosage = st.text_input(f"Dosage in mg {i}", key=f"medicine_dosage_{i}")
+            medicine_frequency = st.text_input(f"Frequency of the drug {i}", key=f"medicine_frequency_{i}")
+            medicine_instructions = st.text_input(f"Any Special Instructions {i}", key=f"medicine_instructions_{i}")
+            medicines.append({
+                "name": medicine_name,
+                "dosage": medicine_dosage,
+                "frequency": medicine_frequency,
+                "instructions": medicine_instructions
+            })
+        if st.button("Submit Prescription"):
+            prescription_data = {
+                "name": patient_name,
+                "age": patient_age,
+                "gender": gender_choice,
+                "weight": patient_weight,
+                "allergies": patient_allergies,
+                "medicines": medicines
+            }
+            response = requests.post("http://localhost:8000/issue-prescription", json=prescription_data)
+            if response.status_code == 200:
+                st.success("Prescription issued successfully.")
+                prescription_info = response.json()
+                st.write(f"Prescription Number: {prescription_info['prescription_number']}")
+                qr_img = qrcode.make(prescription_info["digital_signature"])
+                # convert from PILImage to bytes
+                img_byte_arr = io.BytesIO()
+                qr_img.save(img_byte_arr, format='PNG')
+                qr_img = Image.open(img_byte_arr)
+                st.image(qr_img, caption="Digital Signature (QR Code)")
+            else:
+                st.error("Failed to issue prescription.")
     elif username and password:
         st.error("Invalid username or password")
 
