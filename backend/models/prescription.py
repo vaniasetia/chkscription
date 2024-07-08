@@ -22,13 +22,13 @@ db = client['CHK']
 prescription_collection = db['prescriptions']
 
 class Prescription:
-    def __init__(self, prescription_number, patient_name, patient_age, gender_choice, patient_weight, patient_allergies, medicine, digital_signature):
+    def __init__(self, prescription_number, patient_name, patient_age, gender_choice, patient_weight, patient_allergies, medicines, digital_signature):
         self.patient_name = patient_name
         self.patient_age = patient_age
         self.gender_choice = gender_choice
         self.patient_weight = patient_weight
         self.patient_allergies = patient_allergies
-        self.medicine = medicine
+        self.medicines = medicines
         self.digital_signature = digital_signature
         self.prescription_number = prescription_number
 
@@ -40,7 +40,7 @@ class Prescription:
             'gender' : self.gender_choice,
             'weight' : self.patient_weight,
             'allergies' : self.patient_allergies,
-            'medicine' : self.medicine,
+            'medicines' : self.medicines,
             'digital_signature' : self.digital_signature
         }
         prescription_collection.insert_one(prescription_data)    
@@ -56,7 +56,7 @@ class Prescription:
                 gender_choice=prescription_data['gender'],
                 patient_weight=prescription_data['weight'],
                 patient_allergies=prescription_data['allergies'],
-                medicine=prescription_data['medicine'],
+                medicines=prescription_data['medicines'],
                 digital_signature=prescription_data['digital_signature']
             )
         return None

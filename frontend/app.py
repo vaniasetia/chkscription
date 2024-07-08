@@ -74,11 +74,11 @@ def prescription_verification():
 def display_prescription_details(details):
     """Displays prescription details."""
     st.subheader("Prescription Details")
-    st.write(f"Name: {details['name']}")
-    st.write(f"Age: {details['age']}")
-    st.write(f"Gender: {details['gender']}")
-    st.write(f"Weight: {details['weight']} kg")
-    st.write(f"Allergies: {details['allergies']}")
+    st.write(f"Name: {details['patient_name']}")
+    st.write(f"Age: {details['patient_age']}")
+    st.write(f"Gender: {details['gender_choice']}")
+    st.write(f"Weight: {details['patient_weight']} kg")
+    st.write(f"Allergies: {details['patient_allergies']}")
     st.subheader("Medicines")
     for i, medicine in enumerate(details["medicines"], 1):
         st.write(f"Medicine {i}: {medicine['name']}")
