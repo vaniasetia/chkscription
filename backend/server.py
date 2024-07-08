@@ -29,6 +29,9 @@ def issue_prescription():
 
     digital_signature_str = DSGen.generate_signature(f"{prescription_number}|{patient_name}|{patient_age}|{medicine}|{gender_choice}|{patient_weight}|{patient_allergies}".encode('utf-8'))
 
+    prescription = Prescription(prescription_number, patient_name, patient_age, gender_choice, patient_weight, patient_allergies, medicine, digital_signature_str)
+    prescription.save()
+
     return jsonify({'message': 'prescription issued successfully', 'prescription_number': prescription_number, 'digital_signature': digital_signature_str}), 200
 
 
@@ -44,8 +47,7 @@ def verify_prescription():
     if not prescription:
         return jsonify({'message': 'prescription not found', 'is_valid': False}), 200
 
-    print(prescription.prescription_number, prescription.name, prescription.dob, prescription.validity)
-    message = f"{prescription.prescription_number}|{prescription.name}|{prescription.dob}|{prescription.validity}".encode('utf-8')
+    message = f"{prescription.prescription_number}|{prescription.patient_name}|{prescription.patient_age}|{prescription.medicine}|{prescription.gender_choice}|{prescription.patient_weight}|{prescription.patient_allergies}".encode('utf-8')
     is_valid = DSGen.verify_signature(message, digital_signature)
 
 
@@ -54,14 +56,12 @@ def verify_prescription():
             'message': 'prescription is valid',
             'is_valid': True,
             'prescription_details': {
-                'name': prescription.name,
-                'age': prescription.age,
-                'digital_signature': prescription.digital_signature,
-                'medicine': prescription.medicine,
-                'gender': prescription.gender,
-                'weight': prescription.weight,
-                'allergies': prescription.allergies
-                
+                'name': prescription.patient_name,
+                'age': prescription.patient_age,
+                'gender': prescription.gender_choice,
+                'weight': prescription.patient_weight,
+                'allergies': prescription.patient_allergies,
+                'medicines': prescription.medicine
             }
         }), 200
     else:
