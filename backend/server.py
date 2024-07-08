@@ -23,11 +23,13 @@ def generate_prescription_number():
     """Generate a random prescription number of fixed length."""
     return ''.join([str(random.randint(0, 9)) for _ in range(PRESCRIPTION_NUMBER_LENGTH)])
 
+def serialize_medicines(medicines):
+    return DIGITAL_SIGNATURE_SEPARATOR.join(
+        [f"{med['name']}:{med['dosage']}:{med['frequency']}" for med in medicines])
+
 def serialize_prescription(prescription):
-    """Serialize prescription details for digital signature."""
-    medicines_str = DIGITAL_SIGNATURE_SEPARATOR.join(
-        [f"{med['name']}:{med['dosage']}:{med['frequency']}" for med in prescription['medicines']])
-    return DIGITAL_SIGNATURE_SEPARATOR.join([
+    medicines_str = serialize_medicines(prescription['medicines'])
+    prescription_info = [
         prescription['prescription_number'],
         prescription['patient_name'],
         str(prescription['patient_age']),
@@ -35,7 +37,8 @@ def serialize_prescription(prescription):
         prescription['gender_choice'],
         str(prescription['patient_weight']),
         prescription['patient_allergies']
-    ]).encode('utf-8')
+    ]
+    return DIGITAL_SIGNATURE_SEPARATOR.join(prescription_info).encode('utf-8')
 
 @app.route('/issue-prescription', methods=['POST'])
 def issue_prescription():
