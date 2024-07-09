@@ -1,74 +1,87 @@
-# server.py
 from flask import Flask, request, jsonify
+import random
 from models.prescription import Prescription
 from utils.digital_signature import DigitalSignature
-import random
 
-private_key = open('keys/private.pem').read()
-public_key = open('keys/public.pem').read()
+# Constants
+PRIVATE_KEY_FILE = 'keys/private.pem'
+PUBLIC_KEY_FILE = 'keys/public.pem'
+DIGITAL_SIGNATURE_SEPARATOR = '|'
+PRESCRIPTION_NUMBER_LENGTH = 10
+SUCCESS_STATUS_CODE = 200
 
+# Load keys
+private_key = open(PRIVATE_KEY_FILE).read()
+public_key = open(PUBLIC_KEY_FILE).read()
+
+# Initialize digital signature generator
 DSGen = DigitalSignature(private_key, public_key)
 
 app = Flask(__name__)
 
 def generate_prescription_number():
-    # generate random number of 10 digits
-    return ''.join([str(random.randint(0, 9)) for _ in range(10)])
+    """Generate a random prescription number of fixed length."""
+    return ''.join([str(random.randint(0, 9)) for _ in range(PRESCRIPTION_NUMBER_LENGTH)])
 
-# Prescription issuance route (accessible only to admins)
+def serialize_medicines(medicines):
+    return DIGITAL_SIGNATURE_SEPARATOR.join(
+        [f"{med['name']}:{med['dosage']}:{med['frequency']}" for med in medicines])
+
+def serialize_prescription(prescription):
+    medicines_str = serialize_medicines(prescription['medicines'])
+    prescription_info = [
+        prescription['prescription_number'],
+        prescription['patient_name'],
+        str(prescription['patient_age']),
+        medicines_str,
+        prescription['gender_choice'],
+        str(prescription['patient_weight']),
+        prescription['patient_allergies']
+    ]
+    return DIGITAL_SIGNATURE_SEPARATOR.join(prescription_info).encode('utf-8')
+
 @app.route('/issue-prescription', methods=['POST'])
 def issue_prescription():
+    """Issue a new prescription."""
     data = request.get_json()
-    patient_name = data.get('name')
-    patient_age = data.get('age')
-    medicines = data.get('medicines', [])
-    gender_choice = data.get('gender')
-    patient_weight = data.get('weight')
-    patient_allergies = data.get('allergies')
-    prescription_number = generate_prescription_number()
+    prescription = {
+        'prescription_number': generate_prescription_number(),
+        'patient_name': data.get('name'),
+        'patient_age': data.get('age'),
+        'medicines': data.get('medicines', []),
+        'gender_choice': data.get('gender'),
+        'patient_weight': data.get('weight'),
+        'patient_allergies': data.get('allergies')
+    }
 
-    medicines_str = '|'.join([f"{med['name']}:{med['dosage']}:{med['frequency']}" for med in medicines])
-    digital_signature_str = DSGen.generate_signature(f"{prescription_number}|{patient_name}|{patient_age}|{medicines_str}|{gender_choice}|{patient_weight}|{patient_allergies}".encode('utf-8'))
+    digital_signature_str = DSGen.generate_signature(serialize_prescription(prescription))
 
-    prescription = Prescription(prescription_number, patient_name, patient_age, gender_choice, patient_weight, patient_allergies, medicines, digital_signature_str)
-    prescription.save()
+    prescription_obj = Prescription(**prescription, digital_signature=digital_signature_str)
+    prescription_obj.save()
 
-    return jsonify({'message': 'prescription issued successfully', 'prescription_number': prescription_number, 'digital_signature': digital_signature_str}), 200
+    return jsonify({'message': 'prescription issued successfully', 'prescription_number': prescription['prescription_number'], 'digital_signature': digital_signature_str}), SUCCESS_STATUS_CODE
 
-
-# prescription verification route
 @app.route('/verify-prescription', methods=['POST'])
 def verify_prescription():
+    """Verify an existing prescription."""
     data = request.get_json()
     prescription_number = data.get('prescription_number')
     digital_signature = data.get('digital_signature')
-    
 
     prescription = Prescription.find_by_prescription_number(prescription_number)
     if not prescription:
-        return jsonify({'message': 'prescription not found', 'is_valid': False}), 200
-    
-    medicine_str = '|'.join([f"{med['name']}:{med['dosage']}:{med['frequency']}" for med in prescription.medicine])
+        return jsonify({'message': 'prescription not found', 'is_valid': False}), SUCCESS_STATUS_CODE
 
-    message = f"{prescription.prescription_number}|{prescription.patient_name}|{prescription.patient_age}|{medicine_str}|{prescription.gender_choice}|{prescription.patient_weight}|{prescription.patient_allergies}".encode('utf-8')
-    is_valid = DSGen.verify_signature(message, digital_signature)
-
+    is_valid = DSGen.verify_signature(serialize_prescription(prescription.__dict__), digital_signature)
 
     if is_valid:
         return jsonify({
             'message': 'prescription is valid',
             'is_valid': True,
-            'prescription_details': {
-                'name': prescription.patient_name,
-                'age': prescription.patient_age,
-                'gender': prescription.gender_choice,
-                'weight': prescription.patient_weight,
-                'allergies': prescription.patient_allergies,
-                'medicines': prescription.medicine
-            }
-        }), 200
+            'prescription_details': prescription.__dict__
+        }), SUCCESS_STATUS_CODE
     else:
-        return jsonify({'message': 'prescription is invalid', 'is_valid': False}), 200
+        return jsonify({'message': 'prescription is invalid', 'is_valid': False}), SUCCESS_STATUS_CODE
 
 if __name__ == '__main__':
     app.run(port=8000)
