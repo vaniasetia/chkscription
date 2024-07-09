@@ -60,5 +60,13 @@ class Prescription:
             return None
         prescription_data = db[PRESCRIPTIONS_COLLECTION].find_one({'prescription_number': prescription_number})
         if prescription_data:
-            return Prescription(**prescription_data)
+            return Prescription(
+                prescription_data['prescription_number'],
+                prescription_data['name'],
+                prescription_data['age'],
+                prescription_data['gender'],
+                prescription_data['weight'],
+                prescription_data['allergies'],
+                prescription_data['medicines'],
+                prescription_data['digital_signature'])
         return None
